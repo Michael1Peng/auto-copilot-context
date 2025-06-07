@@ -28,7 +28,8 @@
      │   │   ├── extension.test.ts
      │   │   └── index.ts
      │   ├── runTest.ts
-     │   └── testUtils.ts
+     │   ├── testUtils.ts
+     │   └── testConfig.ts
    ```
 
 2. ConfigurationManager 测试实现：
@@ -204,20 +205,26 @@
    ```typescript
    // runTest.ts
    import * as path from 'path';
-   import * as cp from 'child_process';
    import { runTests } from '@vscode/test-electron';
+   import { config } from './testConfig';
 
    async function main() {
      try {
-       // VS Code 测试环境路径
        const extensionDevelopmentPath = path.resolve(__dirname, '../../');
        const extensionTestsPath = path.resolve(__dirname, './suite/index');
 
-       // 下载 VS Code 并运行测试
        await runTests({
          extensionDevelopmentPath,
          extensionTestsPath,
-         launchArgs: ['--disable-extensions']
+         launchArgs: [
+           '--disable-extensions',
+           '--disable-workspace-trust'
+         ],
+         version: config.vscodeVersion,
+         extensionTestsEnv: {
+           TEST_VERBOSE: config.verbose ? 'true' : 'false',
+           MOCHA_TIMEOUT: config.timeout.toString()
+         }
        });
      } catch (err) {
        console.error('Failed to run tests:', err);
@@ -228,18 +235,31 @@
    main();
    ```
 
-6. 测试套件入口：
+6. 测试配置系统：
+   ```typescript
+   // testConfig.ts
+   export const config = {
+     vscodeVersion: process.env.VSCODE_VERSION || 'stable',
+     verbose: process.env.TEST_VERBOSE === 'true',
+     timeout: parseInt(process.env.TEST_TIMEOUT || '5000'),
+     mochaOptions: {
+       ui: 'tdd',
+       color: true,
+       timeout: parseInt(process.env.TEST_TIMEOUT || '5000')
+     }
+   };
+   ```
+
+7. 测试套件入口：
    ```typescript
    // index.ts
    import * as path from 'path';
    import * as Mocha from 'mocha';
    import * as glob from 'glob';
+   import { config } from '../testConfig';
 
    export function run(): Promise<void> {
-     const mocha = new Mocha({
-       ui: 'tdd',
-       color: true
-     });
+     const mocha = new Mocha(config.mochaOptions);
 
      const testsRoot = path.resolve(__dirname, '.');
 
@@ -249,11 +269,9 @@
            return reject(err);
          }
 
-         // 添加所有测试文件
          files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
 
          try {
-           // 运行测试
            mocha.run(failures => {
              if (failures > 0) {
                reject(new Error(`${failures} tests failed.`));
@@ -269,33 +287,47 @@
    }
    ```
 
-7. 测试工具类：
+8. 测试工具类增强：
    ```typescript
    // testUtils.ts
    import * as vscode from 'vscode';
    import * as sinon from 'sinon';
 
-   export function createMockTextDocument(content: string, fileName: string): vscode.TextDocument {
+   // 现有函数...
+   
+   // 新增增强功能
+   export function createMockTextEditor(
+     document: vscode.TextDocument,
+     selections: vscode.Selection[] = [new vscode.Selection(0, 0, 0, 0)]
+   ): vscode.TextEditor {
      return {
-       fileName: fileName,
-       getText: () => content,
-       uri: vscode.Uri.file(fileName),
-       lineCount: content.split('\n').length,
-       lineAt: (line: number) => {
-         const lines = content.split('\n');
-         return {
-           text: lines[line],
-           range: new vscode.Range(line, 0, line, lines[line].length)
-         };
-       },
-       // 其他必要的属性和方法...
+       document,
+       selection: selections[0],
+       selections,
+       visibleRanges: [new vscode.Range(0, 0, document.lineCount, 0)],
+       viewColumn: vscode.ViewColumn.One,
+       // 其他必要属性和方法...
      } as any;
    }
 
-   export function createMockWorkspaceFolder(name: string, path: string): vscode.WorkspaceFolder {
+   export function assertCalled(spy: sinon.SinonSpy, callCount = 1, message?: string) {
+     if (spy.callCount !== callCount) {
+       throw new Error(message || `Expected ${callCount} calls, got ${spy.callCount}`);
+     }
+   }
+
+   export function sleep(ms: number): Promise<void> {
+     return new Promise(resolve => setTimeout(resolve, ms));
+   }
+
+   export function createTempWorkspaceFolder(): vscode.WorkspaceFolder {
+     const tempPath = require('os').tmpdir();
+     const folderName = `test-workspace-${Date.now()}`;
+     const folderPath = path.join(tempPath, folderName);
+     
      return {
-       name: name,
-       uri: vscode.Uri.file(path),
+       name: folderName,
+       uri: vscode.Uri.file(folderPath),
        index: 0
      };
    }
@@ -307,7 +339,8 @@
 1. 单元测试验证：
    - 运行所有单元测试并确保通过率达到 90% 以上：
    ```bash
-   npm run test
+   # 使用环境变量配置测试
+   TEST_VERBOSE=true VSCODE_VERSION=1.85.0 TEST_TIMEOUT=15000 npm test
    ```
    
    - 使用 NYC 或 Istanbul 生成代码覆盖率报告，验证关键模块的覆盖率：
@@ -342,13 +375,18 @@
      * 扩展上下文正确配置
 
 3. 集成测试验证：
-   - 创建一个模拟的 VS Code 工作区环境
-   - 验证完整的工作流程：
+   - 使用@vscode/test-electron创建模拟VS Code环境
+   - 验证完整工作流程：
      * 扩展激活
      * 配置加载
      * 文件变更触发上下文更新
      * 输出生成
    - 测试不同配置组合下的行为
+   - 使用环境变量控制测试参数：
+     ```bash
+     # 过滤特定测试
+     MOCHA_GREP="ConfigurationManager" npm test
+     ```
 
 4. 边缘情况测试：
    - 测试无效配置情况下的行为
@@ -450,12 +488,35 @@ Test results: 8 tests passed in 7ms with no compilation or linting errors. Cover
 ### Description: Create test cases for ContextTracker functionality
 ### Details:
 1. Implement contextTracker.test.ts test suite. 2. Test initialization dependencies. 3. Verify file change handling logic. 4. Test resource disposal mechanism. 5. Cover interaction with FileCollector using stubs.
+<info added on 2025-06-07T07:16:52.691Z>
+1. Implement ContextTracker unit tests in contextTracker.test.ts using @vscode/test-electron framework with sinon for stubs/spies
+2. Test initialization with configuration dependencies and method validation
+3. Verify file change event handling logic and listener setup
+4. Test open file tracking through textDocuments and tabGroups simulation
+5. Cover resource disposal mechanism and disposable cleanup
+6. Validate error handling during output operations
+7. Implement document validation checks for scheme and untitled files
+8. Utilize testUtils for mock context/config and setup/teardown patterns
+9. Verification points: initialization, event listeners, file collection, disposal, error handling
+</info added on 2025-06-07T07:16:52.691Z>
 
 ## 5. Implement Extension Activation Tests [pending]
 ### Dependencies: 18.1, 18.2
 ### Description: Create tests for extension activation and command registration
 ### Details:
 1. Implement extension.test.ts test suite. 2. Test command registration during activation. 3. Verify core component initialization. 4. Test subscription management in extension context. 5. Cover error handling during activation.
+<info added on 2025-06-07T07:18:13.895Z>
+1. Implement extension.test.ts test suite using @vscode/test-electron framework  
+2. Test command registration during activation with focus on 'auto-context.removeTopCommentBlocks'  
+3. Verify ContextTracker initialization and subscription management  
+4. Test graceful handling of missing workspace during activation  
+5. Validate configuration loading during activation  
+6. Cover error handling scenarios including configuration errors  
+7. Implement resource disposal verification on deactivation  
+8. Include tests for extension activation success verification  
+9. Ensure test coverage for configuration loading and error handling  
+10. Follow TDD structure with setup/teardown patterns using sinon for API mocking
+</info added on 2025-06-07T07:18:13.895Z>
 
 ## 6. Implement Test Runner and Suite Integration [done]
 ### Dependencies: 18.1
@@ -534,15 +595,49 @@ MOCHA_GREP="ConfigurationManager" npm test
 这个重新设计的测试方案提供了更专业、可维护和可扩展的测试基础设施，为后续的测试开发奠定了坚实的基础。
 </info added on 2025-06-07T06:13:52.177Z>
 
+## 9. Implement Enhanced Test Utilities [pending]
+### Dependencies: 18.1, 18.2
+### Description: Extend test utilities with advanced mocking capabilities
+### Details:
+1. Add TextEditor simulation with selection support
+2. Implement assertion helpers (assertCalled, assertCalledWith)
+3. Create temporary workspace folder utility
+4. Add async sleep function for timing tests
+5. Enhance document mock with range extraction capabilities
+<info added on 2025-06-07T07:20:16.871Z>
+Add TabGroups and Tab simulation utility (createMockTabGroups)
+Add file system simulation utility (createMockFileSystem)
+Create test suite for test utilities (testUtils.test.ts) to verify all utility functions
+</info added on 2025-06-07T07:20:16.871Z>
+
 ## 7. Configure Code Coverage and Reporting [pending]
 ### Dependencies: 18.1, 18.3, 18.4, 18.5
 ### Description: Set up code coverage instrumentation and reporting
 ### Details:
 1. Install coverage tool (nyc or c8). 2. Add coverage scripts to package.json. 3. Configure .nycrc for coverage thresholds. 4. Integrate with test runner. 5. Set up CI-friendly reporting format.
+<info added on 2025-06-07T07:21:53.233Z>
+1. Install coverage tool dependencies: nyc, c8, and @istanbuljs/nyc-config-typescript  
+2. Configure NYC via .nycrc.json with thresholds, reporters, include/exclude patterns  
+3. Configure C8 via .c8rc.json as alternative coverage solution  
+4. Update package.json scripts for coverage commands (test:coverage, coverage:report, etc.)  
+5. Modify test runner (runTest.ts) to integrate coverage with @vscode/test-electron  
+6. Extend testConfig.ts with coverage flags and threshold settings  
+7. Implement coverage-report.js script for summary generation and threshold validation  
+8. Update GitHub Actions workflow for coverage-enabled testing and Codecov integration  
+9. Document environment variables for coverage control (TEST_COVERAGE, COVERAGE_TOOL)  
+10. Establish coverage verification process: data generation, threshold checks, reporting, and CI/CD integration
+</info added on 2025-06-07T07:21:53.233Z>
 
 ## 8. Integration Testing and Manual Verification [pending]
-### Dependencies: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7
+### Dependencies: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.9
 ### Description: Perform end-to-end test validation and manual checks
 ### Details:
 1. Run full test suite in VS Code environment. 2. Verify all tests pass in isolation and together. 3. Manually inspect test output and coverage reports. 4. Validate test failure scenarios. 5. Document test execution process.
+<info added on 2025-06-07T07:23:16.471Z>
+1. Implement end-to-end integration tests for the extension workflow, configuration changes, error handling, performance, and resource cleanup in src/test/suite/integration.test.ts
+2. Create comprehensive manual testing checklist in docs/manual-testing-checklist.md covering activation, file tracking, output generation, error scenarios, and performance
+3. Develop automated verification script (scripts/verify-tests.js) for compilation, linting, test execution, coverage checks, and test file validation
+4. Configure CI/CD pipeline (.github/workflows/comprehensive-test.yml) for multi-OS, multi-Node.js version, and multi-VSCode version testing
+5. Validate test environment compatibility across Ubuntu/Windows/macOS, Node.js 16.x/18.x, and VSCode stable/insiders versions
+</info added on 2025-06-07T07:23:16.471Z>
 
