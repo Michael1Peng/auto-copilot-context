@@ -673,8 +673,8 @@
             "title": "Implement ContextTracker Unit Tests",
             "description": "Create test cases for ContextTracker functionality",
             "dependencies": [],
-            "details": "1. Implement contextTracker.test.ts test suite. 2. Test initialization dependencies. 3. Verify file change handling logic. 4. Test resource disposal mechanism. 5. Cover interaction with FileCollector using stubs.\n<info added on 2025-06-07T07:16:52.691Z>\n1. Implement ContextTracker unit tests in contextTracker.test.ts using @vscode/test-electron framework with sinon for stubs/spies\n2. Test initialization with configuration dependencies and method validation\n3. Verify file change event handling logic and listener setup\n4. Test open file tracking through textDocuments and tabGroups simulation\n5. Cover resource disposal mechanism and disposable cleanup\n6. Validate error handling during output operations\n7. Implement document validation checks for scheme and untitled files\n8. Utilize testUtils for mock context/config and setup/teardown patterns\n9. Verification points: initialization, event listeners, file collection, disposal, error handling\n</info added on 2025-06-07T07:16:52.691Z>",
-            "status": "pending",
+            "details": "1. Implement contextTracker.test.ts test suite. 2. Test initialization dependencies. 3. Verify file change handling logic. 4. Test resource disposal mechanism. 5. Cover interaction with FileCollector using stubs.\n<info added on 2025-06-07T07:16:52.691Z>\n1. Implement ContextTracker unit tests in contextTracker.test.ts using @vscode/test-electron framework with sinon for stubs/spies\n2. Test initialization with configuration dependencies and method validation\n3. Verify file change event handling logic and listener setup\n4. Test open file tracking through textDocuments and tabGroups simulation\n5. Cover resource disposal mechanism and disposable cleanup\n6. Validate error handling during output operations\n7. Implement document validation checks for scheme and untitled files\n8. Utilize testUtils for mock context/config and setup/teardown patterns\n9. Verification points: initialization, event listeners, file collection, disposal, error handling\n</info added on 2025-06-07T07:16:52.691Z>\n<info added on 2025-06-29T15:06:28.984Z>\n已完成 ContextTracker 单元测试实现：\n1. 为 ContextTracker.ts 添加了详细的测试注释标记（@testable, @scenario, @test-implementation）\n2. 创建了完整的单元测试文件 ContextTracker.test.ts，包含：\n   - 构造函数测试（依赖注入验证）\n   - initialize 方法测试（事件监听器注册）\n   - dispose 方法测试（资源清理）\n   - 文件变更处理测试（配置驱动的行为）\n   - 集成点测试（与配置管理器的交互）\n3. 所有测试用例都添加了序号标记（--> 1-11），便于后续指导\n4. 严格遵循只添加注释的原则，未修改任何业务逻辑代码\n5. 测试覆盖了初始化依赖、事件监听器设置、文件变更处理逻辑、资源清理机制和与FileCollector的交互\n</info added on 2025-06-29T15:06:28.984Z>",
+            "status": "done",
             "testStrategy": "Mocha/Chai tests with sinon spies/stubs, validate mock interactions"
           },
           {
@@ -683,7 +683,7 @@
             "description": "Create tests for extension activation and command registration",
             "dependencies": [],
             "details": "1. Implement extension.test.ts test suite. 2. Test command registration during activation. 3. Verify core component initialization. 4. Test subscription management in extension context. 5. Cover error handling during activation.\n<info added on 2025-06-07T07:18:13.895Z>\n1. Implement extension.test.ts test suite using @vscode/test-electron framework  \n2. Test command registration during activation with focus on 'auto-context.removeTopCommentBlocks'  \n3. Verify ContextTracker initialization and subscription management  \n4. Test graceful handling of missing workspace during activation  \n5. Validate configuration loading during activation  \n6. Cover error handling scenarios including configuration errors  \n7. Implement resource disposal verification on deactivation  \n8. Include tests for extension activation success verification  \n9. Ensure test coverage for configuration loading and error handling  \n10. Follow TDD structure with setup/teardown patterns using sinon for API mocking\n</info added on 2025-06-07T07:18:13.895Z>",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Mocha tests with sinon to spy on VS Code command registration"
           },
           {
@@ -956,7 +956,7 @@
     ],
     "metadata": {
       "created": "2025-06-29T14:46:19.666Z",
-      "updated": "2025-06-29T14:46:19.666Z",
+      "updated": "2025-06-29T15:06:40.965Z",
       "description": "集成测试实现相关任务，包括测试框架分析、注释标记和渐进式测试实现"
     }
   }
